@@ -3,6 +3,9 @@ from fastapi.responses import JSONResponse
 from database import engine
 import models
 from routers import router
+#==================
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 # Создаем таблицы
 models.Base.metadata.create_all(bind=engine)

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 import crud, schemas
@@ -210,3 +211,86 @@ def get_owners_with_specific_lastname(db: Session = Depends(get_db)):
     if result is None:
         raise HTTPException(status_code=404, detail="Таких фамилий нет")
     return create_response_with_sql(result)
+
+
+# ============================================
+# ЗАДАНИЯ: Коровашкин (Задание 9)
+# ============================================
+
+@router.get("/analytics/korovashkin/places/spb", tags=["Аналитика - Коровашкин"])
+def korovashkin_get_spb_places(db: Session = Depends(get_db)):
+    """
+    Задание 9 (Простой уровень): Площадки в Санкт-Петербурге
+    
+    Автор: Коровашкин
+    Запрос: SELECT * FROM places WHERE location LIKE 'Санкт-Петербург%'
+    
+    Примечание: Может вернуть 0 записей, если в БД нет данных по СПб
+    """
+    query = text("""
+        SELECT * FROM places
+        WHERE location LIKE 'Санкт-Петербург%'
+    """)
+    result = db.execute(query)
+    columns = result.keys()
+    data = [dict(zip(columns, row)) for row in result.fetchall()]
+    return {"count": len(data), "data": data, "author": "Коровашкин"}
+
+
+@router.get("/analytics/korovashkin/places/above-average-scale", tags=["Аналитика - Коровашкин"])
+def korovashkin_get_places_above_avg_scale(db: Session = Depends(get_db)):
+    """
+    Задание 9 (Продвинутый уровень): Площадки с масштабом выше среднего
+    
+    Автор: Коровашкин
+    Запрос: Площадки, у которых scale > среднего значения по всей базе
+    
+    Ожидаемо: ~22 записи
+    """
+    query = text("""
+        SELECT *
+        FROM places
+        WHERE scale > (SELECT AVG(scale) FROM places)
+    """)
+    result = db.execute(query)
+    columns = result.keys()
+    data = [dict(zip(columns, row)) for row in result.fetchall()]
+    return {"count": len(data), "data": data, "author": "Коровашкин"}
+
+
+@router.get("/analytics/korovashkin/owners/email-stats", tags=["Аналитика - Коровашкин"])
+def korovashkin_get_owner_email_stats(db: Session = Depends(get_db)):
+    """
+    Задание 9 (Доп. анализ): Статистика владельцев по почтовым доменам
+    
+    Автор: Коровашкин
+    Запрос: Группировка владельцев по домену почты (ORG/NET/COM/Other)
+    с подсчётом количества и процента от общего числа
+    
+    Ожидаемо: 3 строки с распределением по сервисам
+    """
+    query = text("""
+        SELECT
+            email_service,
+            COUNT(*) AS user_count,
+            ROUND(
+                COUNT(*) * 100.0 / (SELECT COUNT(*) FROM owners),
+                1
+            ) AS percentage
+        FROM (
+            SELECT
+                CASE
+                    WHEN email LIKE '%@example.org' THEN 'ORG'
+                    WHEN email LIKE '%@example.net' THEN 'NET'
+                    WHEN email LIKE '%@example.com' THEN 'COM'
+                    ELSE 'Other'
+                END AS email_service
+            FROM owners
+        )
+        GROUP BY email_service
+        ORDER BY user_count DESC
+    """)
+    result = db.execute(query)
+    columns = result.keys()
+    data = [dict(zip(columns, row)) for row in result.fetchall()]
+    return {"data": data, "author": "Коровашкин"}
